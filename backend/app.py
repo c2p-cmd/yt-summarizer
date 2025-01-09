@@ -3,7 +3,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from extract_audio import (
     simple_download_audio_from_youtube,
     download_audio_from_youtube,
-    YTResult,
     YTRequest,
 )
 from gemini import Gemini
@@ -16,7 +15,9 @@ gemini = Gemini()
 # health check at /
 @app.get("/")
 def read_root():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+    }
 
 
 # POST /download
@@ -27,7 +28,10 @@ def extract_audio_from_youtube(request: YTRequest) -> JSONResponse:
         error = res.error_code
         if error != 0:
             return JSONResponse(
-                status_code=400, content={"error": "Failed to download audio"}
+                status_code=400,
+                content={
+                    "error": f"Failed to download audio with error code: {error}",
+                },
             )
         summary = gemini.generate_text(f"output/{res.title}.m4a")
         return JSONResponse(
@@ -38,7 +42,12 @@ def extract_audio_from_youtube(request: YTRequest) -> JSONResponse:
             },
         )
     except Exception as e:
-        return JSONResponse(status_code=400, content={"error": str(e)})
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": str(e),
+            },
+        )
 
 
 # POST /summarize
@@ -50,18 +59,17 @@ def summarize(link: str) -> StreamingResponse:
 
         # Download audio from YouTube
         for response in download_audio_from_youtube(link):
-            if isinstance(response, YTResult):
-                res = response
-            else:
-                error = response
-        
-        if error != 0 or not res:
+            res = response
+            error = res.error_code
+
+        if error is not None and error != 0 or res is None:
             logging.error("Error downloading audio from YouTube")
             return JSONResponse(
                 status_code=400, content={"error": "Failed to download audio"}
             )
 
         file_path = f"output/{res.title}.m4a"
+
         # Define the streaming generator
         def gemini_stream():
             try:
@@ -78,6 +86,19 @@ def summarize(link: str) -> StreamingResponse:
 
 
 if __name__ == "__main__":
+    import sys
     import uvicorn
 
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True, workers=2)
+    # provide mode as argument: python app.py debug
+    if len(sys.argv) <= 1:
+        logging.error("Provide mode as argument: python app.py debug")
+        sys.exit(-1)
+
+    arg = sys.argv[1].lower()
+    if arg == "debug" or arg == "prod":
+        debug = arg == "debug"
+        logging.info(f"Starting server in arg mode")
+        uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=debug, workers=2)
+    else:
+        logging.error("Invalid mode argument, give either 'debug' or 'prod'")
+        sys.exit(-1)
