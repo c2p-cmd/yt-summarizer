@@ -41,33 +41,34 @@ class Gemini:
         )
         return response.text
 
-    def generate_text_streaming(self, local_file: str) -> Generator[str, None, None]:
+    def generate_text_streaming(
+        self, local_file: str, id: str
+    ) -> Generator[str, None, None]:
         responses = self.model.generate_content(
             [
                 {
                     "role": "user",
                     "parts": [
-                        self.__upload_to_gemini(local_file, mime_type="audio/m4a"),
-                        "Generate audio diarization, Summarize the audio's content with fun facts too.",
+                        self.__upload_to_gemini(
+                            id=id, path=local_file, mime_type="audio/m4a"
+                        ),
+                        "Summarize the audio's content with fun facts too.",
                     ],
                 },
             ],
             stream=True,
         )
-        text = ""
         for response in responses:
-            text += response.text
-            yield text
+            yield response.text
 
-    def __upload_to_gemini(self, id, path, ext="m4a", mime_type=None) -> str:
+    def __upload_to_gemini(self, id: str, path: str, mime_type=None) -> str:
         """Uploads the given file to Gemini.
 
         See https://ai.google.dev/gemini-api/docs/prompting_with_media
         """
         file = genai.upload_file(
-            f"{path}.{ext}",
+            path,
             mime_type=mime_type,
-            name=f"files/{id}.{ext}",
         )
         print(f"Uploaded file '{file.display_name}' as: {file.uri}")
         return file

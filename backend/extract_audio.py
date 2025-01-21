@@ -1,7 +1,9 @@
 from pydantic import BaseModel
 from typing import Generator, Optional
 import yt_dlp
+from logging import getLogger
 
+logger = getLogger(__name__)
 
 class YTRequest(BaseModel):
     link: str
@@ -17,20 +19,20 @@ class YTResult(BaseModel):
 
 def __my_hook(d):
     if d["status"] == "error":
-        print("Error downloading video")
+        logger.info("Error downloading video")
     elif d["status"] == "downloading":
         downloaded_bytes = d.get("downloaded_bytes", 0)
         total_bytes_estimate = d.get("total_bytes_estimate", 1)
         percent = downloaded_bytes / total_bytes_estimate * 100
-        print(f"Downloaded {percent:.2f}%")
+        logger.info(f"Downloaded {percent:.2f}%")
     elif d["status"] == "finished":
-        print("Download finished")
+        logger.info("Download finished")
 
 
 def __get_options():
     return {
         "format": "m4a/bestaudio/best",
-        "outtmpl": "output/%(title)s.%(ext)s",
+        "outtmpl": "output/audio.%(ext)s",
         "progress_hooks": [__my_hook],
     }
 
@@ -81,4 +83,4 @@ def download_audio_from_youtube(
 if __name__ == "__main__":
     link = "https://www.youtube.com/watch?v=vf7bI5nZyi8"
     for update in download_audio_from_youtube(link):
-        print(f"Video Info: {update}")
+        logger.info(f"Video Info: {update}")

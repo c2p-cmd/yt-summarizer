@@ -8,6 +8,8 @@ from extract_audio import (
 from gemini import Gemini
 import logging
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI()
 gemini = Gemini()
 
@@ -52,36 +54,38 @@ def extract_audio_from_youtube(request: YTRequest) -> JSONResponse:
 
 # POST /summarize
 @app.post("/summarize")
-def summarize(link: str) -> StreamingResponse:
+def summarize(req: YTRequest) -> StreamingResponse:
     try:
+        print(req)
         res = None
         error = None
 
         # Download audio from YouTube
-        for response in download_audio_from_youtube(link):
+        for response in download_audio_from_youtube(req.link):
             res = response
             error = res.error_code
 
         if error is not None and error != 0 or res is None:
-            logging.error("Error downloading audio from YouTube")
+            logger.error("Error downloading audio from YouTube")
             return JSONResponse(
                 status_code=400, content={"error": "Failed to download audio"}
             )
 
-        file_path = f"output/{res.title}.m4a"
+        file_path = f"output/audio.m4a"
 
         # Define the streaming generator
         def gemini_stream():
             try:
-                for chunk in gemini.generate_text_streaming(file_path):
+                for chunk in gemini.generate_text_streaming(local_file=file_path, id=res.id):
                     yield chunk
             except Exception as e:
-                logging.error(f"Error in Gemini streaming: {e}")
+                logger.error(f"Error in Gemini streaming: {e}")
                 yield f"Error: {str(e)}\n"
 
         return StreamingResponse(gemini_stream(), media_type="text/plain")
     except Exception as e:
-        logging.error(f"Unexpected error in /summarize: {e}")
+        print(f"Unexpected error in /summarize: {e}")
+        logger.error(f"Unexpected error in /summarize: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
@@ -91,14 +95,14 @@ if __name__ == "__main__":
 
     # provide mode as argument: python app.py debug
     if len(sys.argv) <= 1:
-        logging.error("Provide mode as argument: python app.py debug")
+        logger.error("Provide mode as argument: python app.py debug")
         sys.exit(-1)
 
     arg = sys.argv[1].lower()
     if arg == "debug" or arg == "prod":
         debug = arg == "debug"
-        logging.info(f"Starting server in arg mode")
+        logger.info(f"Starting server in arg mode")
         uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=debug, workers=2)
     else:
-        logging.error("Invalid mode argument, give either 'debug' or 'prod'")
+        logger.error("Invalid mode argument, give either 'debug' or 'prod'")
         sys.exit(-1)
