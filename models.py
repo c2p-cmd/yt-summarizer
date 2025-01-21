@@ -20,3 +20,12 @@ class YTResult(BaseModel):
 
 class YTResultWithTranscript(YTResult):
     transcript: str = Field(description="The YouTube video transcript")
+
+    def model_outputs(self) -> list:
+        return [
+            self.id,
+            self.title,
+            self.thumbnail_link,
+            self.uploader,
+            self.transcript,
+        ]

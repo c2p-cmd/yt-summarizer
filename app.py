@@ -2,6 +2,7 @@ from ai_client import Gemini
 from extract_audio import simple_download_audio_from_youtube
 from models import YTResultWithTranscript
 import gradio as gr
+import os
 
 gemini = Gemini()
 
@@ -17,28 +18,34 @@ def summarize_audio(youtube_link: str):
         yt_res.uploader,
     ):
         yt_transcript.transcript += chunk
-        yield yt_transcript.model_dump().values()
+        yield yt_transcript.model_outputs()
 
 
 demo = gr.Interface(
     fn=summarize_audio,
-    inputs="text",
+    inputs=gr.Textbox(label="YouTube Link"),
     outputs=[
-        # id
-        gr.Textbox(),
+        gr.Textbox(lines=1, label="ID"),
         # title
-        gr.Textbox(),
+        gr.Textbox(lines=1, label="Title"),
         # thumbnail_link
-        gr.Image(type='filepath'),
+        gr.Image(label="Thumbnail Link", type='filepath', show_download_button=True),
         # uploader
-        gr.Textbox(),
-        # error_code
-        gr.Textbox(),
+        gr.Textbox(lines=1, label="Uploader"),
         # transcript
-        gr.TextArea(),
+        gr.Markdown(lines=5, label="Transcript", show_copy_button=True),
     ],
     title="Summarize Audio",
     description="Summarize the content of an audio from a YouTube link.",
+    flagging_mode="never",
+    api_name="summarize",
 )
 
-demo.launch()
+
+def auth_handler(usr, pwd) -> bool:
+    username = os.environ.get("USERNAME")
+    password = os.environ.get("PASSWORD")
+    return usr == username and pwd == password
+
+
+demo.launch(auth=auth_handler, pwa=True)
