@@ -1,20 +1,17 @@
-from pydantic import BaseModel
-from typing import Generator, Optional
-import yt_dlp
 from logging import getLogger
+from typing import Generator, Optional
+from models import YTResult
+import yt_dlp
 
 logger = getLogger(__name__)
 
-class YTRequest(BaseModel):
-    link: str
 
-
-class YTResult(BaseModel):
-    id: str
-    title: str
-    thumbnail_link: str
-    uploader: str
-    error_code: Optional[int] = None
+def __get_audio(result: YTResult) -> Optional[YTResult]:
+    try:
+        with open(f"output/{result.id}.m4a", "rb") as f:
+            return result
+    except FileNotFoundError:
+        return None
 
 
 def __my_hook(d):
@@ -32,29 +29,47 @@ def __my_hook(d):
 def __get_options():
     return {
         "format": "m4a/bestaudio/best",
-        "outtmpl": "output/audio.%(ext)s",
+        "outtmpl": "output/%(id)s.%(ext)s",
         "progress_hooks": [__my_hook],
     }
 
 
-def simple_download_audio_from_youtube(link: str) -> YTResult:
+def extract_info(link: str) -> YTResult:
     with yt_dlp.YoutubeDL(__get_options()) as ydl:
-        info = ydl.extract_info(link, download=True)
+        info = ydl.extract_info(link, download=False)
         info_dict = ydl.sanitize_info(info)
-        error_code = ydl.download([link])
 
         return YTResult(
             id=info_dict["id"],
             title=info_dict["title"],
             thumbnail_link=info_dict["thumbnail"],
             uploader=info_dict["uploader"],
-            error_code=error_code,
         )
 
 
-def download_audio_from_youtube(
-    link: str,
-) -> Generator[YTResult, None, None]:
+def simple_download_audio_from_youtube(link: str) -> YTResult:
+    with yt_dlp.YoutubeDL(__get_options()) as ydl:
+        info = ydl.extract_info(link, download=False)
+        info_dict = ydl.sanitize_info(info)
+
+        res = YTResult(
+            id=info_dict["id"],
+            title=info_dict["title"],
+            thumbnail_link=info_dict["thumbnail"],
+            uploader=info_dict["uploader"],
+        )
+
+        local_link = __get_audio(res)
+        if local_link:
+            return res
+
+        error_code = ydl.download([link])
+
+        res.error_code = error_code
+        return res
+
+
+def download_audio_from_youtube(link: str) -> Generator[YTResult, None, None]:
     with yt_dlp.YoutubeDL(__get_options()) as ydl:
         info = ydl.extract_info(link, download=False)
         info_dict = ydl.sanitize_info(info)
@@ -81,6 +96,6 @@ def download_audio_from_youtube(
 
 # Example Usage
 if __name__ == "__main__":
-    link = "https://www.youtube.com/watch?v=vf7bI5nZyi8"
-    for update in download_audio_from_youtube(link):
+    yt_link = "https://www.youtube.com/watch?v=vf7bI5nZyi8"
+    for update in download_audio_from_youtube(yt_link):
         logger.info(f"Video Info: {update}")
