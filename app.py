@@ -33,7 +33,7 @@ demo = gr.Interface(
         # uploader
         gr.Textbox(lines=1, label="Uploader"),
         # transcript
-        gr.Markdown(lines=5, label="Transcript", show_copy_button=True),
+        gr.Markdown(label="Transcript", show_copy_button=True),
     ],
     title="Summarize Audio",
     description="Summarize the content of an audio from a YouTube link.",
